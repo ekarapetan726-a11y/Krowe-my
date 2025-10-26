@@ -1,20 +1,185 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="ru">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Krowe</title>
-  <style>
-    body { font-family: Arial, sans-serif; text-align: center; margin-top: 50px; }
-    h1 { color: #4A90E2; }
-    p { font-size: 18px; }
-    button { padding: 10px 20px; font-size: 16px; cursor: pointer; }
-  </style>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Krowe — Передача файлов</title>
+
+<!-- Шрифты и стиль -->
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=Orbitron:wght@600&display=swap" rel="stylesheet">
+
+<style>
+  body {
+    background: radial-gradient(circle at 20% 20%, rgba(155,89,255,0.08), transparent 60%),
+                radial-gradient(circle at 80% 80%, rgba(110,231,249,0.06), transparent 60%),
+                #0b0f14;
+    color: white;
+    font-family: "Inter", sans-serif;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    min-height: 100vh;
+    padding: 40px 20px;
+  }
+  .container {
+    max-width: 620px;
+    width: 100%;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 16px;
+    padding: 32px;
+    backdrop-filter: blur(14px);
+    box-shadow: 0 0 40px rgba(155,89,255,0.1);
+  }
+  h1 {
+    font-family: "Orbitron", sans-serif;
+    font-size: 42px;
+    text-align: center;
+    background: linear-gradient(90deg, #6EE7F9, #9B59FF);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    margin-bottom: 8px;
+  }
+  .subtitle {
+    text-align: center;
+    color: rgba(255,255,255,0.7);
+    margin-bottom: 24px;
+  }
+  .btn {
+    background: linear-gradient(90deg, #6EE7F9, #9B59FF);
+    border: none;
+    padding: 12px 20px;
+    border-radius: 10px;
+    color: #000;
+    font-weight: 600;
+    cursor: pointer;
+    transition: 0.2s;
+  }
+  .btn:hover {
+    transform: scale(1.04);
+  }
+  .btn.secondary {
+    background: transparent;
+    border: 1px solid rgba(255,255,255,0.3);
+    color: white;
+  }
+  #fileList li {
+    margin: 6px 0;
+    background: rgba(255,255,255,0.05);
+    padding: 8px;
+    border-radius: 8px;
+  }
+  .instructions {
+    margin-top: 30px;
+    font-size: 15px;
+    color: rgba(255,255,255,0.8);
+  }
+  .hidden { display:none; }
+</style>
 </head>
 <body>
+
+<div class="container">
   <h1>Krowe</h1>
-  <p>Здесь будет твой сайт для передачи файлов с ПК на телефон.</p>
-  <button onclick="alert('Функционал пока не готов')">Загрузить файл</button>
+  <p class="subtitle">Передай файлы между ПК и телефоном 🔗</p>
+
+  <div id="auth">
+    <button id="loginBtn" class="btn">Войти через Google</button>
+  </div>
+
+  <div id="upload" class="hidden">
+    <p>Привет, <span id="userName"></span>!</p>
+    <input type="file" id="fileInput" />
+    <button id="uploadBtn" class="btn">Загрузить</button>
+
+    <h3>📁 Мои файлы:</h3>
+    <ul id="fileList"></ul>
+
+    <button id="logoutBtn" class="btn secondary">Выйти</button>
+  </div>
+
+  <div class="instructions">
+    <h3>🧾 Инструкция</h3>
+    <ol>
+      <li>Зайди на сайт <b>Krowe</b> на компьютере.</li>
+      <li>Нажми <b>«Войти через Google»</b>.</li>
+      <li>Выбери файл и нажми <b>«Загрузить»</b>.</li>
+      <li>Теперь открой сайт на телефоне, войди тем же аккаунтом.</li>
+      <li>Скачай свой файл 🎉</li>
+    </ol>
+  </div>
+</div>
+
+<script type="module">
+  /* === ВСТАВЬ СВОЙ КОД FIREBASE СЮДА === */
+  const firebaseConfig = {
+    apiKey: "AIzaSyAq4dfEnveV2kYnr3TxA376POPuWYI6p5I",
+    authDomain: "krowe-app.firebaseapp.com",
+    projectId: "krowe-app",
+    storageBucket: "krowe-app.firebasestorage.app",
+    messagingSenderId: "638142805957",
+    appId: "1:638142805957:web:4ad945e442abeca4ff7dac"
+  };
+
+  /* === Основная логика === */
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
+  import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-auth.js";
+  import { getStorage, ref, uploadBytes, listAll, getDownloadURL } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-storage.js";
+
+  const app = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+  const provider = new GoogleAuthProvider();
+  const storage = getStorage(app);
+
+  const loginBtn = document.getElementById('loginBtn');
+  const logoutBtn = document.getElementById('logoutBtn');
+  const uploadDiv = document.getElementById('upload');
+  const authDiv = document.getElementById('auth');
+  const uploadBtn = document.getElementById('uploadBtn');
+  const fileInput = document.getElementById('fileInput');
+  const fileList = document.getElementById('fileList');
+  const userName = document.getElementById('userName');
+
+  loginBtn.onclick = () => signInWithPopup(auth, provider);
+  logoutBtn.onclick = () => signOut(auth);
+
+  onAuthStateChanged(auth, (user) => {
+    if (user) {
+      authDiv.classList.add('hidden');
+      uploadDiv.classList.remove('hidden');
+      userName.textContent = user.displayName;
+      loadFiles(user);
+    } else {
+      authDiv.classList.remove('hidden');
+      uploadDiv.classList.add('hidden');
+    }
+  });
+
+  async function uploadFile(user) {
+    const file = fileInput.files[0];
+    if (!file) return alert("Выберите файл!");
+    const storageRef = ref(storage, `${user.uid}/${file.name}`);
+    await uploadBytes(storageRef, file);
+    alert("✅ Файл загружен!");
+    loadFiles(user);
+  }
+
+  async function loadFiles(user) {
+    fileList.innerHTML = 'Загрузка...';
+    const userRef = ref(storage, user.uid);
+    const res = await listAll(userRef);
+    fileList.innerHTML = '';
+    for (const item of res.items) {
+      const url = await getDownloadURL(item);
+      const li = document.createElement('li');
+      li.innerHTML = `<a href="${url}" target="_blank">${item.name}</a>`;
+      fileList.appendChild(li);
+    }
+  }
+
+  uploadBtn.onclick = () => uploadFile(auth.currentUser);
+</script>
+
 </body>
 </html>
 
